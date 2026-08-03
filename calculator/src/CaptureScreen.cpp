@@ -25,7 +25,7 @@ void CaptureScreen::clearPhotoFolder() {
         if (!fs::exists(photoDir)) { fs::create_directory(photoDir); return; }
         std::vector<std::string> keepFiles = { "process.py", "answer.py", "check.png", "cross.png",
                                                "captured.jpg", "test.png", "clean_rewrite.png", "in", "out",
-                                                "trend.png","pie.png"};
+                                                "trend.png", "pie.png", "api_key.txt", "python.log"};
         for (const auto& entry : fs::directory_iterator(photoDir)) {
             if (entry.is_regular_file()) {
                 std::string filename = entry.path().filename().string();
@@ -78,7 +78,7 @@ bool CaptureScreen::copyFileToTest(const std::string& sourcePath) {
 }
 
 // ---------- 无窗口运行 Python ----------
-static int runPythonSilent(const std::string& script) {
+static int runPythonSilent(const std::string& script, const std::wstring& workDir = L"") {
     STARTUPINFOW si = { sizeof(si) };
     PROCESS_INFORMATION pi = {};
     si.dwFlags = STARTF_USESHOWWINDOW;
@@ -86,24 +86,37 @@ static int runPythonSilent(const std::string& script) {
     std::wstring cmd = L"python " + std::wstring(script.begin(), script.end());
     std::vector<wchar_t> buf(cmd.begin(), cmd.end());
     buf.push_back(L'\0');
-    if (CreateProcessW(NULL, buf.data(), NULL, NULL, FALSE,
-                       CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+    std::vector<wchar_t> cwdBuf(workDir.begin(), workDir.end());
+    cwdBuf.push_back(L'\0');
+    LPCWSTR cwd = workDir.empty() ? NULL : cwdBuf.data();
+    // Redirect Python output to photo/python.log so failures are visible.
+    SECURITY_ATTRIBUTES sa = { sizeof(sa), NULL, TRUE };
+    HANDLE logFile = CreateFileW(L"photo/python.log", GENERIC_WRITE,
+                                 FILE_SHARE_READ | FILE_SHARE_WRITE, &sa,
+                                 CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (logFile != INVALID_HANDLE_VALUE) {
+        si.dwFlags |= STARTF_USESTDHANDLES;
+        si.hStdOutput = logFile;
+        si.hStdError = logFile;
+        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    }
+    if (CreateProcessW(NULL, buf.data(), NULL, NULL, TRUE,
+                       CREATE_NO_WINDOW, NULL, cwd, &si, &pi)) {
         WaitForSingleObject(pi.hProcess, INFINITE);
         DWORD code = 0;
         GetExitCodeProcess(pi.hProcess, &code);
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
+        if (logFile != INVALID_HANDLE_VALUE) CloseHandle(logFile);
         return static_cast<int>(code);
     }
+    if (logFile != INVALID_HANDLE_VALUE) CloseHandle(logFile);
     return -1;
 }
 
 bool CaptureScreen::runPythonScript() {
     if (!fs::exists("scripts/process.py")) return false;
-    auto cur = fs::current_path();
-    fs::current_path("photo");
-    int ret = runPythonSilent("../scripts/process.py");
-    fs::current_path(cur);
+    int ret = runPythonSilent("../scripts/process.py", L"photo");
     return (ret == 0);
 }
 
@@ -198,25 +211,14 @@ void CaptureScreen::init() {
 
     // ---- 返回按钮（自定义贴图，带备用） ----
     std::cout << "Current working directory: " << fs::current_path() << std::endl;
-    std::vector<std::string> searchPaths = {
-        "images/return.png",
-        "../images/return.png",
-        "../../images/return.png",
-        "return.png",
-        fs::current_path().string() + "/images/return.png"
-    };
     bool loaded = false;
-    for (const auto& path : searchPaths) {
-        if (m_backTexture.loadFromFile(path)) {
-            m_backSprite = std::make_unique<sf::Sprite>(m_backTexture);
-            sf::Vector2u texSize = m_backTexture.getSize();
-            float backScale = 80.f / texSize.x;
-            m_backSprite->setScale(sf::Vector2f(backScale, backScale));
-            m_backSprite->setPosition(sf::Vector2f(20.f, 20.f));
-            m_usingCustomBack = true;
-            loaded = true;
-            break;
-        }
+    if (ResourceManager::loadTextureWithFallback(m_backTexture, "return.png")) {
+        m_backSprite = std::make_unique<sf::Sprite>(m_backTexture);
+        float backScale = 80.f / static_cast<float>(m_backTexture.getSize().x);
+        m_backSprite->setScale(sf::Vector2f(backScale, backScale));
+        m_backSprite->setPosition(sf::Vector2f(20.f, 20.f));
+        m_usingCustomBack = true;
+        loaded = true;
     }
     if (!loaded) {
         m_usingCustomBack = false;
@@ -371,7 +373,7 @@ void CaptureScreen::handleEvent(const sf::Event& event, const sf::RenderWindow& 
                     cv::Mat info(480, 640, CV_8UC3, cv::Scalar(50, 60, 80));
                     cv::putText(info, "Camera is off", { 215,230 }, cv::FONT_HERSHEY_SIMPLEX, 0.8, { 255,255,255 }, 2);
                     m_frameMat = info; m_frameTexture = matToTexture(info); m_frameSprite->setTexture(*m_frameTexture, true);
-                    float s = std::min(1200.f / info.cols, 900.f / info.rows); m_frameSprite->setScale({ s,s }); m_frameSprite->setPosition({ 100,100 });
+                    float s = std::min(1200.f / info.cols, 800.f / info.rows); m_frameSprite->setScale({ s,s }); m_frameSprite->setPosition({ 100,100 });
                 }
                 return;
             }
@@ -386,7 +388,7 @@ void CaptureScreen::handleEvent(const sf::Event& event, const sf::RenderWindow& 
 
             // 答案按钮
             if (m_answerBtnSprite && m_answerBtnSprite->getGlobalBounds().contains(m_mousePos)) {
-                if (!m_isAnswerProcessing) runAnswerScript();
+                if (!m_showingAnswer && !m_isAnswerProcessing && !m_isProcessing) runAnswerScript();
                 return;
             }
 
@@ -413,7 +415,8 @@ void CaptureScreen::handleEvent(const sf::Event& event, const sf::RenderWindow& 
 
             // 处理按钮
             if (m_processButton.getGlobalBounds().contains(m_mousePos)) {
-                if (!m_inputString.empty() && loadImageToSprite(m_inputString)) { m_pendingImagePath = m_inputString; m_pendingFrames = 1; }
+                if (!m_isProcessing && !m_isAnswerProcessing &&
+                    !m_inputString.empty() && loadImageToSprite(m_inputString)) { m_pendingImagePath = m_inputString; m_pendingFrames = 1; }
                 return;
             }
             m_isInputActive = false;
@@ -470,7 +473,8 @@ void CaptureScreen::handleEvent(const sf::Event& event, const sf::RenderWindow& 
             }
             else if (textEntered->unicode == 13) { // Enter
                 m_isInputActive = false; clearSelection();
-                if (!m_inputString.empty() && loadImageToSprite(m_inputString)) { m_pendingImagePath = m_inputString; m_pendingFrames = 1; }
+                if (!m_isProcessing && !m_isAnswerProcessing &&
+                    !m_inputString.empty() && loadImageToSprite(m_inputString)) { m_pendingImagePath = m_inputString; m_pendingFrames = 1; }
                 return;
             }
             else if (textEntered->unicode >= 32 && textEntered->unicode < 128) {
@@ -507,7 +511,7 @@ void CaptureScreen::update(float deltaTime) {
     }
     // 延迟处理
     if (m_pendingFrames > 0) m_pendingFrames--;
-    else if (m_pendingFrames == 0) { m_pendingFrames = -1; processImageFromPath(m_pendingImagePath); }
+    else if (m_pendingFrames == 0 && !m_isProcessing && !m_isAnswerProcessing) { m_pendingFrames = -1; processImageFromPath(m_pendingImagePath); }
     // 摄像头开启时更新帧
     if (m_cameraOpened && m_cap.isOpened() && m_pendingFrames < 0 && !m_isProcessing && !m_isAnswerProcessing) updateFrame();
 
@@ -706,10 +710,7 @@ void CaptureScreen::runAnswerScript() {
                           fs::copy_options::overwrite_existing);
         } catch (...) { return false; }
 
-        auto cur = fs::current_path();
-        fs::current_path("photo");
-        int ret = runPythonSilent("../scripts/answer.py");
-        fs::current_path(cur);
+        int ret = runPythonSilent("../scripts/answer.py", L"photo");
         return (ret == 0);
     });
 }

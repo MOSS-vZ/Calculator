@@ -4,12 +4,19 @@
 基于原批改脚本修改，保留等宽分列、左对齐、分数竖式等特性。
 """
 import os, sys, base64, re, shutil, datetime
+
+# Keep console output from crashing on GBK codepages (emoji in print statements).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 from fractions import Fraction
 from openai import OpenAI
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ==================== 用户配置 ====================
-API_KEY = "sk-ws-H.EMEMRMP.U7X6.MEUCIFgxt_fMJR30EToiWldgdFga9d9Xl37OfxX8WVSI-0_aAiEAsKAUlkbkirp3IUcOegUxsKZ7saXnoYtQYxy6Xxs_jWU"   # 👈 请替换为你的真实密钥
+API_KEY = ""
 IMAGE_PATH = "test.png"         # 输入图片（仅有题目，无答案）
 MODEL_NAME = "qwen-vl-max"
 
@@ -39,6 +46,18 @@ def get_api_key():
     key = os.getenv("DASHSCOPE_API_KEY")
     if key: return key
     if API_KEY and API_KEY.strip(): return API_KEY
+    # Fallback: read the key from a local gitignored file so it never has to live in source code.
+    key_file_candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "photo", "api_key.txt"),
+        os.path.join(os.getcwd(), "api_key.txt"),
+    ]
+    for _kf in key_file_candidates:
+        if os.path.isfile(_kf):
+            # utf-8-sig strips a BOM that Notepad/PowerShell may add to UTF-8 files.
+            with open(_kf, "r", encoding="utf-8-sig") as _f:
+                _k = _f.read().strip()
+            if _k:
+                return _k
     raise RuntimeError("请填写 API_KEY 或设置环境变量")
 
 def encode_image(path):
@@ -101,15 +120,19 @@ def parse_qwen_output(raw, img_w, img_h):
         left_part, right_part = (expr.split('=', 1) + [''])[:2]
         left_expr = left_part.strip()
         # 计算正确答案（忽略右侧的任何内容）
-        correct_val = calc_fraction(parse_mixed_fraction(left_expr))
+        try:
+            correct_val = calc_fraction(parse_mixed_fraction(left_expr))
+        except Exception:
+            correct_val = None
+        answer_text = str(correct_val) if correct_val is not None else '?'
 
         problems.append({
             'num': num,
             'left': left_expr,
-            'right_raw': str(correct_val),   # 答案文本（绿色打印用）
+            'right_raw': answer_text,   # 答案文本（绿色打印用）
             'verdict': '正确',               # 固定为正确
             'center': (cx, cy),
-            'true_answer': str(correct_val)
+            'true_answer': answer_text
         })
     return sorted(problems, key=lambda x: x['num'])
 
@@ -158,7 +181,11 @@ def layout_columns(col_problems, img_w, img_h, font_size, icon_size):
             ys = [p['center'][1] for p in probs]
             min_y, max_y = min(ys), max(ys)
             target_min, target_max = TOP_MARGIN, img_h - BOTTOM_MARGIN
-            new_ys = [int(target_min + (y - min_y) * (target_max - target_min) / (max_y - min_y)) for y in ys]
+            if max_y > min_y:
+                new_ys = [int(target_min + (y - min_y) * (target_max - target_min) / (max_y - min_y)) for y in ys]
+            else:
+                # All problems share the same y: spread them evenly instead of dividing by zero.
+                new_ys = [int(target_min + (target_max - target_min) * (i + 1) / (len(probs) + 1)) for i in range(len(probs))]
         else:
             new_ys = [img_h // 2]
 

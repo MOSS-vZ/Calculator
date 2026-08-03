@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cmath>
 #include <cstdint>
+#include <ctime>
 
 MainScreen::MainScreen()
     : m_computer(std::make_unique<sf::Sprite>(ResourceManager::getInstance().getTexture("computer.png"))),
@@ -160,6 +161,7 @@ void MainScreen::init() {
     m_btnHistory->setPosition(initX, SIDEBAR_BTN_Y_START);
     m_btnWrong->setPosition(initX, SIDEBAR_BTN_Y_START + SIDEBAR_BTN_SPACING);
 
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
     initPatterns();
     initSidebarPatterns();   // 初始化侧边栏装饰
 
@@ -200,7 +202,7 @@ void MainScreen::handleEvent(const sf::Event& event, const sf::RenderWindow& win
                     if (m_app) m_app->switchScreen(std::make_unique<WrongBookScreen>()); return;
                 }
                 sf::FloatRect sr = m_sidebarBg.getGlobalBounds();
-                if (!sr.contains(m_mousePos)) { closeSidebar(); return; }
+                if (!sr.contains(m_mousePos)) closeSidebar();
             }
             if (m_btnStartPractice && m_btnStartPractice->isHovered(m_mousePos)) {
                 if (m_app) m_app->switchScreen(std::make_unique<PracticeScreen>()); return;

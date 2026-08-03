@@ -24,3 +24,9 @@ calculator/photo/out/
 calculator/photo/in_capture/
 calculator/photo/out_capture/
 calculator/photo/wrong/
+calculator/photo/api_key.txt
+calculator/photo/python.log
+
+# Python cache
+__pycache__/
+*.pyc

@@ -17,8 +17,8 @@ private:
     sf::View m_mainView;
 
     // ========== 尺寸参数 ==========
-    static constexpr float WINDOW_WIDTH = 3048.f;
-    static constexpr float WINDOW_HEIGHT = 1236.f;
+    static constexpr float WINDOW_WIDTH = 2048.f;
+    static constexpr float WINDOW_HEIGHT = 1536.f;
 
     static constexpr float COMPUTER_SCALE = 0.6f;
     static constexpr float WORD_SCALE = 0.35f;

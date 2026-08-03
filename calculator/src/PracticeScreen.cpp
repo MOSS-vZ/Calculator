@@ -6,6 +6,7 @@
 #include <random>
 #include <cmath>
 #include <algorithm>
+#include <ctime>
 
 PracticeScreen::PracticeScreen() {}
 PracticeScreen::~PracticeScreen() {}
@@ -36,6 +37,7 @@ void PracticeScreen::initPatterns() {
 }
 
 void PracticeScreen::init() {
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
     // ---- 加载字体（优先支持 ×÷ 的字体） ----
     bool loaded = false;
     if (m_font.openFromFile("C:/Windows/Fonts/msyh.ttf")) loaded = true;      // 微软雅黑

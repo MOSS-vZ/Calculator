@@ -1,93 +1,122 @@
-# Arithmetic Practice Grading System
+# 口算作业批改系统（Arithmetic Practice Grading System）
 
-口算作业批改系统 - 基于 SFML + OpenCV 的 C++ 桌面应用。
+基于 **SFML 3 + OpenCV** 的 C++ 桌面应用，调用阿里云百炼 **Qwen-VL** 视觉模型，对学生口算作业进行拍照识别与自动批改，并提供答案生成、错题本、历史统计和口算练习等功能。
 
-## Features
+## 功能特性
 
-- 摄像头拍照 / 文件路径导入题目
-- AI 批改（通过 Qwen-VL 视觉模型）
-- AI 答案生成
-- 错题本管理
-- 历史记录与正确率趋势图
-- 口算练习模式
+- 摄像头拍照、文件路径导入、文件对话框选择图片三种方式录入题目
+- AI 批改：识别算式与答案并自动判定正误（支持分数、带分数、涂抹标记）
+- AI 答案生成：自动计算并生成答案
+- 错题本：自动归档错题截图，按批查阅
+- 历史记录：批改输入/输出自动归档，正确率趋势图与结果分布饼图
+- 口算练习：加减乘除四则运算计时练习
 
-## Dependencies
+## 技术栈
 
-- **SFML 3.x** — Graphics / Window / System / Audio
-- **OpenCV 4.12.0** — Camera capture
-- **Python 3** — AI grading scripts (`scripts/`)
-  - `openai`, `matplotlib`, `Pillow`
+| 组件 | 版本 | 说明 |
+| --- | --- | --- |
+| C++ | C++20 | 桌面程序主体 |
+| SFML | 3.1.0 | Graphics / Window / System / Audio（头文件与库已随仓库附带） |
+| OpenCV | 4.12.0 | 摄像头采集（库已随仓库附带） |
+| Python | 3.10+ | AI 批改脚本（开发环境使用 3.13） |
+| 阿里云百炼 DashScope | - | Qwen-VL 视觉模型 API（需自备 API Key） |
 
-## Build
+Python 依赖（见 `requirement.txt`）：`openai`、`Pillow`、`matplotlib`。
 
-Open `caculator.slnx` in Visual Studio 2022, build with Debug|x64 or Release|x64.
+> **注意**：仓库只附带 SFML/OpenCV 的头文件和 `.lib` 库，**运行时 DLL 未包含**，需要自行准备（见下文「构建与运行」）。
 
-## Project Structure
+## 环境要求
 
-```
-caculator/
-  src/            C++ source code
-  assets/
-    images/       UI images (buttons, etc.)
-    splash/       Startup animation frames
-  bin/            Runtime DLLs
-  scripts/        Python AI scripts
-  lib/            Static libraries (.lib)
-  include/        Third-party headers
-  photo/          Runtime data (gitignored)
-```
+- Windows 10/11 x64
+- Visual Studio 2022 或更新版本（需安装「使用 C++ 的桌面开发」工作负载；解决方案为 `.slnx` 格式，仅支持 x64）
+- Python 3.10+（需保证 `python` 命令在 PATH 中）
+- 阿里云百炼 DashScope API Key（模型：`qwen-vl-max`）
 
-## 🛠️ 开发者环境部署指南 (For Developers)
+## 快速开始
 
-如果你想克隆此仓库并在本地编译、运行和修改代码，请按照以下步骤配置环境：
+1. 克隆仓库：
 
-### 1. 获取代码
-```bash
-git clone https://github.com/MOSS-vZ/Calculator.git
-```
+   ```bash
+   git clone https://github.com/MOSS-vZ/Calculator.git
+   ```
 
-### 2. 开发工具准备
-Visual Studio：本项目使用 Visual Studio 2026 开发，需要安装 C++ 桌面开发 工作负载。
+2. 安装 Python 依赖（在仓库根目录执行）：
 
-Python：本项目依赖 Python 脚本执行特定功能，请确保电脑已安装 Python (本项目使用的是3.13)。
+   ```bash
+   pip install -r requirement.txt
+   ```
 
-### 3. C++ 环境配置 (SFML 库)
-本项目使用了 SFML 多媒体库。请在 VS 中正确配置链接：
+3. 配置 API Key（见下文「配置 API Key」）。
 
-下载 SFML (建议使用 3.1.0 版本) 并解压到你的电脑某个目录（例如 D:\SFML-3.1.0）。
+4. 用 Visual Studio 2022+ 打开 `calculator.slnx`，选择 **Release | x64**，生成并运行。
 
-打开 VS 项目 caculator.sln。
+5. 将 SFML 3.1 / OpenCV 4.12 的运行时 DLL 放入 `calculator/bin/` 或输出目录 `calculator/x64/Release/`（构建后事件会自动将 `bin/` 下的 DLL 复制到输出目录）。
 
-配置属性：右键项目 -> 属性。确保配置选择为 Release，平台选择 x64。
+### 构建与运行
 
-在 C/C++ -> 常规 -> 附加包含目录 中添加：D:\SFML-3.1.0\include
+工程文件已预先配置头文件路径（`..\include`）和库路径（`..\lib`），**无需手动修改**；Debug 配置链接调试库（`-d` 后缀），Release 配置链接发布库。
 
-在 链接器 -> 常规 -> 附加库目录 中添加：D:\SFML-3.1.0\lib
+1. 用 Visual Studio 2022+ 打开 `calculator.slnx`
+2. 工具栏切换为 **Release**、平台 **x64**
+3. 菜单栏「生成 → 重新生成解决方案」
+4. 运行 `calculator/x64/Release/calculator.exe`（或在 VS 中直接按 F5）
 
-在 链接器 -> 输入 -> 附加依赖项 中添加（注意不要带 -d）：
+### 配置 API Key
 
-text
-sfml-system.lib;sfml-window.lib;sfml-graphics.lib;sfml-audio.lib;sfml-network.lib
-将解压目录 D:\SFML-3.1.0\bin 中不带 -d 的 .dll 文件复制到项目目录 x64\Release 下。
+AI 批改与答案生成依赖 DashScope API Key，脚本按以下优先级读取：
 
-### 4. Python 运行环境配置
-本项目调用了 Python 脚本，因此需要安装第三方依赖库。
-
-在项目根目录下打开命令行（CMD 或 PowerShell）。
-
-如果没有 requirements.txt，请手动创建一个，并填入以下依赖：
-```txt
-# requirements.txt 内容示例 (请根据实际使用的第三方库填写)
-matplotlib
-```
-执行以下命令安装依赖：
+1. 环境变量 `DASHSCOPE_API_KEY`
+2. 本地文件 `calculator/photo/api_key.txt`（文件内只写 Key 本身，不要引号；该文件已加入 `.gitignore`）
 
 ```bash
-pip install -r requirements.txt
+# 方式一：设置环境变量
+setx DASHSCOPE_API_KEY "你的 Key"   # Windows 命令提示符
 ```
-### 5. 编译与运行
-在 VS 顶部的工具栏，将模式切换为 Release 和 x64。
 
-点击菜单栏 生成 -> 重新生成解决方案。
+```text
+# 方式二：创建本地密钥文件（推荐，不会进版本库）
+calculator/photo/api_key.txt
+```
 
-进入 x64\Release 文件夹，双击 caculator.exe 即可运行。
+### 使用流程
+
+1. 主界面点击「拍照批改」进入拍摄/导入界面
+2. 打开摄像头拍照，或在输入框中粘贴图片路径、点击「…」选择文件
+3. 点击批改按钮，等待 AI 识别完成
+4. 查看批改结果、历史记录与错题本
+
+## 项目结构
+
+```text
+Calculator/
+├─ calculator.slnx            解决方案文件（仅 x64）
+├─ requirement.txt            Python 依赖清单
+├─ 软件详细设计文档.docx       详细设计文档
+└─ calculator/
+   ├─ src/                    C++ 源码
+   ├─ assets/
+   │  ├─ images/              界面图片（按钮、返回图标等）
+   │  └─ splash/              启动动画帧
+   ├─ scripts/                Python AI 脚本（process.py 批改、answer.py 答案）
+   ├─ include/                第三方头文件（SFML 3.1 / OpenCV 4.12）
+   ├─ lib/                    第三方库（.lib）
+   ├─ bin/                    运行时 DLL 存放位置（需自行准备，已 gitignore）
+   └─ photo/                  运行时数据（gitignored）
+      ├─ test.png             待批改图片
+      ├─ in/ out/             批改输入/输出归档
+      ├─ wrong/               错题本数据
+      ├─ trend.png pie.png    统计图表
+      ├─ api_key.txt          API Key（可选）
+      └─ python.log           Python 脚本输出日志
+```
+
+## 常见问题
+
+- **扫描后没有结果图 / 批改失败**：查看 `calculator/photo/python.log` 中的脚本输出；确认 API Key 已配置且网络可访问 DashScope。
+- **exe 无法启动**：缺少 SFML/OpenCV 运行时 DLL，将 DLL 放入 `calculator/bin/` 或输出目录后重新构建。
+- **photo/ 目录会被自动清理**：仅保留运行时文件（含 `api_key.txt`、`python.log`），请勿在其中存放其他数据。
+- **摄像头打不开**：检查 Windows 相机隐私权限，或改用文件导入方式。
+
+## 许可证
+
+本项目以 MIT License 发布，详见 [LICENSE.txt](LICENSE.txt)。注意其中版权信息仍为占位符，发布前请补充实际作者与年份。

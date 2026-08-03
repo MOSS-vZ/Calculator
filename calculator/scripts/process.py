@@ -4,6 +4,13 @@
 带输入/输出文件归档（时间戳命名），批改图先在当前目录生成 clean_rewrite.png，再复制到 out/
 """
 import os, sys, base64, re, shutil, datetime
+
+# Keep console output from crashing on GBK codepages (emoji in print statements).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 import matplotlib
 matplotlib.use('Agg')        # 必须在 import pyplot 之前，使用无 GUI 后端
 import matplotlib.pyplot as plt
@@ -13,7 +20,7 @@ from openai import OpenAI
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ==================== 用户配置 ====================
-API_KEY = "sk-ws-H.EMEMRMP.U7X6.MEUCIFgxt_fMJR30EToiWldgdFga9d9Xl37OfxX8WVSI-0_aAiEAsKAUlkbkirp3IUcOegUxsKZ7saXnoYtQYxy6Xxs_jWU"          # 👈 请替换
+API_KEY = ""
 IMAGE_PATH = "test.png"
 MODEL_NAME = "qwen-vl-max"
 OUTPUT_TXT = "批改结果.txt"           # 将不再使用，直接写入 out/
@@ -69,6 +76,18 @@ def get_api_key():
     key = os.getenv("DASHSCOPE_API_KEY")
     if key: return key
     if API_KEY and API_KEY.strip(): return API_KEY
+    # Fallback: read the key from a local gitignored file so it never has to live in source code.
+    key_file_candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "photo", "api_key.txt"),
+        os.path.join(os.getcwd(), "api_key.txt"),
+    ]
+    for _kf in key_file_candidates:
+        if os.path.isfile(_kf):
+            # utf-8-sig strips a BOM that Notepad/PowerShell may add to UTF-8 files.
+            with open(_kf, "r", encoding="utf-8-sig") as _f:
+                _k = _f.read().strip()
+            if _k:
+                return _k
     raise RuntimeError("请填写 API_KEY 或设置环境变量")
 
 def encode_image(path):
@@ -198,7 +217,11 @@ def layout_columns(col_problems, img_w, img_h, font_size, icon_size):
             ys = [p['center'][1] for p in probs]
             min_y, max_y = min(ys), max(ys)
             target_min, target_max = TOP_MARGIN, img_h - BOTTOM_MARGIN
-            new_ys = [int(target_min + (y - min_y) * (target_max - target_min) / (max_y - min_y)) for y in ys]
+            if max_y > min_y:
+                new_ys = [int(target_min + (y - min_y) * (target_max - target_min) / (max_y - min_y)) for y in ys]
+            else:
+                # All problems share the same y: spread them evenly instead of dividing by zero.
+                new_ys = [int(target_min + (target_max - target_min) * (i + 1) / (len(probs) + 1)) for i in range(len(probs))]
         else:
             new_ys = [img_h // 2]
 

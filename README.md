@@ -91,7 +91,6 @@ calculator/photo/api_key.txt
 Calculator/
 ├─ calculator.slnx            解决方案文件（仅 x64）
 ├─ requirement.txt            Python 依赖清单
-├─ 软件详细设计文档.docx       详细设计文档
 └─ calculator/
    ├─ src/                    C++ 源码
    ├─ assets/

@@ -118,4 +118,4 @@ Calculator/
 
 ## 许可证
 
-本项目以 MIT License 发布，详见 [LICENSE.txt](LICENSE.txt)。注意其中版权信息仍为占位符，发布前请补充实际作者与年份。
+本项目以 MIT License 发布，详见 [LICENSE.txt](LICENSE.txt)。

@@ -116,6 +116,13 @@ Calculator/
 - **photo/ 目录会被自动清理**：仅保留运行时文件（含 `api_key.txt`、`python.log`），请勿在其中存放其他数据。
 - **摄像头打不开**：检查 Windows 相机隐私权限，或改用文件导入方式。
 
+## 贡献者 / 开发团队
+
+| 贡献者 | 角色 / 主要贡献 |
+| :--- | :--- |
+| **[MOSS-vZ](https://github.com/MOSS-vZ)** | UI/UX 设计与优化、错题本逻辑、历史统计与图表、项目维护 |
+| **[bihongling](https://github.com/bihongling)** | C++ 与 SFML 集成、核心脚本编写 |
+
 ## 许可证
 
 本项目以 MIT License 发布，详见 [LICENSE.txt](LICENSE.txt)。
